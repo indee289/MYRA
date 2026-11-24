@@ -11,6 +11,9 @@
 #   `android-actions/setup-android` use NAHI kiya — v3 purana 'tools' package
 #   install karne ki koshish karta hai jo ab exist hi nahi karta, aur
 #   "Failed to find package 'tools'" error se fail ho jata hai (run #1).
+#   Isi liye sdkmanager ko PATH se nahi, $ANDROID_HOME/cmdline-tools ke
+#   andar dhoondh kar chalaya jata hai (run #2 me `sdkmanager: command
+#   not found` aaya tha kyunki PATH me nahi tha).
 # - Launcher icons (mipmap/img.png, drawable/img_foreground.png) abhi repo me
 #   nahi hain — AndroidManifest unhe @mipmap/img se use karta hai, isliye
 #   build se pehle agar wo missing hon to ek temporary laal placeholder icon
@@ -43,7 +46,9 @@ jobs:
           distribution: 'temurin'
 
       - name: Install Android platform 34 + build-tools
-        run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
+        run: |
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 2 -name sdkmanager -type f | head -n 1)
+          yes | "$SDKMANAGER" "platforms;android-34" "build-tools;34.0.0"
 
       - name: Set up Gradle 8.7
         uses: gradle/actions/setup-gradle@v3

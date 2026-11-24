@@ -17,6 +17,10 @@
 #   cmdline-tools/<version>/bin/ me hota hai, isliye find me maxdepth 3
 #   chahiye — maxdepth 2 se kuch nahi milta aur $SDKMANAGER khaali reh
 #   jata hai (run #3 me yahi hua).
+# - Placeholder icon banate time parent folder bhi banana zaruri hai:
+#   repo me `res/mipmap/` folder hi nahi hai (img.png binary hone se
+#   upload nahi hui thi), isliye open() se pehle makedirs lagaya gaya
+#   hai (run #4 me FileNotFoundError aaya tha).
 # - Launcher icons (mipmap/img.png, drawable/img_foreground.png) abhi repo me
 #   nahi hain — AndroidManifest unhe @mipmap/img se use karta hai, isliye
 #   build se pehle agar wo missing hon to ek temporary laal placeholder icon
@@ -78,6 +82,7 @@ jobs:
           for p in ['app/src/main/res/mipmap/img.png',
                     'app/src/main/res/drawable/img_foreground.png']:
               if not os.path.exists(p):
+                  os.makedirs(os.path.dirname(p), exist_ok=True)
                   write_png(p, 512, 512, (255, 23, 68))  # MYRA red placeholder
                   print('created placeholder:', p)
               else:

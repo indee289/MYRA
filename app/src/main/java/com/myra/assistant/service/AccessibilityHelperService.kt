@@ -27,7 +27,7 @@ class AccessibilityHelperService : AccessibilityService() {
             try {
                 lastRoot = root
             } catch (e: Exception) {
-                root = lastRoot
+                root = lastRoot ?: return null
             }
         }
         return root
@@ -127,7 +127,7 @@ class AccessibilityHelperService : AccessibilityService() {
             try {
                 lastRoot = root
             } catch (e: Exception) {
-                root = lastRoot
+                root = lastRoot ?: return null
             }
             return root
         }

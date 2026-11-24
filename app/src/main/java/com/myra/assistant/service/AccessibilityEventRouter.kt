@@ -49,7 +49,7 @@ object AccessibilityEventRouter {
             pkg.contains("launcher")
 
         if (isLauncher && eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
-            !AppLockActivity.Companion.isUnlockedThisSession() &&
+            !AppLockActivity.isUnlockedThisSession &&
             SecurityManager.isAppLockEnabled(service)
         ) {
             Log.d(TAG, "🔒 Home Screen Locked. Opening Lock Screen.")
@@ -74,7 +74,7 @@ object AccessibilityEventRouter {
 
         if ((eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
                 eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) &&
-            !AppLockActivity.Companion.isUnlockedThisSession() &&
+            !AppLockActivity.isUnlockedThisSession &&
             SecurityManager.isPackageLocked(service, pkg) &&
             pkg != service.packageName &&
             pkg != "com.myra.assistant"

@@ -45,7 +45,7 @@ object WhatsAppAutomation {
         val isCall = task.type == "WHATSAPP_CALL"
         val isVideo = task.params["video"]?.toBoolean() ?: false
 
-        val screenState = ScreenAnalyzer.INSTANCE.analyze(root)
+        val screenState = ScreenAnalyzer.analyze(root)
         val step = AIState.step
         Log.d(TAG, "WA Screen: ${screenState.screenType} | Step: $step")
 
@@ -235,20 +235,20 @@ object WhatsAppAutomation {
     }
 
     private fun findPhoneNumber(name: String): String? {
-        val service = AccessibilityHelperService.Companion.getInstance() ?: return null
-        val transliterated = HindiTransliterator.INSTANCE.transliterate(name)
-        val resolved = ContactResolver.INSTANCE.resolve(service, transliterated)
+        val service = AccessibilityHelperService.instance ?: return null
+        val transliterated = HindiTransliterator.transliterate(name)
+        val resolved = ContactResolver.resolve(service, transliterated)
         if (resolved.isNotEmpty()) {
-            return ContactResolver.INSTANCE.clean(resolved)
+            return ContactResolver.clean(resolved)
         }
-        val fuzzy = ContactResolver.INSTANCE.fuzzyResolve(service, transliterated)
+        val fuzzy = ContactResolver.fuzzyResolve(service, transliterated)
         if (fuzzy.isNotEmpty()) {
-            return ContactResolver.INSTANCE.clean(fuzzy)
+            return ContactResolver.clean(fuzzy)
         }
         if (name != transliterated) {
-            val originalResolved = ContactResolver.INSTANCE.resolve(service, name)
+            val originalResolved = ContactResolver.resolve(service, name)
             if (originalResolved.isNotEmpty()) {
-                return ContactResolver.INSTANCE.clean(originalResolved)
+                return ContactResolver.clean(originalResolved)
             }
         }
         Log.w(TAG, "No number found for: $name")
@@ -266,7 +266,7 @@ object WhatsAppAutomation {
     }
 
     private fun openChatViaSearch(contactName: String): Boolean {
-        if (AccessibilityHelperService.Companion.getInstance() == null) {
+        if (AccessibilityHelperService.instance == null) {
             return false
         }
         val clicked = SmartAccessibilityEngine.click(null, "com.whatsapp:id/fab", null) ||
@@ -275,7 +275,7 @@ object WhatsAppAutomation {
         if (!clicked) {
             return false
         }
-        val transliterated = HindiTransliterator.INSTANCE.transliterate(contactName)
+        val transliterated = HindiTransliterator.transliterate(contactName)
         handler.postDelayed({
             SmartAccessibilityEngine.typeText(transliterated)
         }, 1200)
@@ -292,7 +292,7 @@ object WhatsAppAutomation {
     }
 
     private fun openDirectChat(phoneNumber: String) {
-        val service = AccessibilityHelperService.Companion.getInstance() ?: return
+        val service = AccessibilityHelperService.instance ?: return
         val number = formatNumberForWhatsApp(phoneNumber)
         val pkg = if (isPackageInstalled(service, "com.whatsapp.w4b")) {
             "com.whatsapp.w4b"

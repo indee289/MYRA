@@ -31,9 +31,9 @@ object YouTubeAutomation {
         if (packageName != "com.google.android.youtube") {
             return
         }
-        val query = task.params["query"]?.let { HindiTransliterator.INSTANCE.transliterate(it) }
+        val query = task.params["query"]?.let { HindiTransliterator.transliterate(it) }
             ?: return
-        val screenState = ScreenAnalyzer.INSTANCE.analyze(root)
+        val screenState = ScreenAnalyzer.analyze(root)
         val step = AIState.step
         Log.d(TAG, "YT Screen: ${screenState.screenType} | Step: $step | Query: $query")
 

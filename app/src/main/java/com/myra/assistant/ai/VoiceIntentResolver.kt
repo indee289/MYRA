@@ -7,7 +7,7 @@ import java.util.Locale
 class VoiceIntentResolver(private val context: Context) {
 
     fun resolveIntent(text: String): String {
-        val normalized = HindiTransliterator.INSTANCE.normalizeForCommands(text)
+        val normalized = HindiTransliterator.normalizeForCommands(text)
             .lowercase(Locale.ROOT).trim()
         return when {
             normalized.contains("open") || normalized.contains("kholo") ||

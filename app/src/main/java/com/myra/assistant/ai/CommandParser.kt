@@ -40,7 +40,7 @@ class CommandParser(private val context: Context) {
         if (input.isBlank()) {
             return null
         }
-        val normalized = HindiTransliterator.INSTANCE.normalizeForCommands(input)
+        val normalized = HindiTransliterator.normalizeForCommands(input)
         val lower = normalized.lowercase(Locale.ROOT).trim()
         return parseStructuredFormat(lower, normalized) ?: parseVoiceInput(lower, normalized)
     }

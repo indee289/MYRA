@@ -13,7 +13,10 @@
 #   "Failed to find package 'tools'" error se fail ho jata hai (run #1).
 #   Isi liye sdkmanager ko PATH se nahi, $ANDROID_HOME/cmdline-tools ke
 #   andar dhoondh kar chalaya jata hai (run #2 me `sdkmanager: command
-#   not found` aaya tha kyunki PATH me nahi tha).
+#   not found` aaya tha kyunki PATH me nahi tha). Note: sdkmanager
+#   cmdline-tools/<version>/bin/ me hota hai, isliye find me maxdepth 3
+#   chahiye — maxdepth 2 se kuch nahi milta aur $SDKMANAGER khaali reh
+#   jata hai (run #3 me yahi hua).
 # - Launcher icons (mipmap/img.png, drawable/img_foreground.png) abhi repo me
 #   nahi hain — AndroidManifest unhe @mipmap/img se use karta hai, isliye
 #   build se pehle agar wo missing hon to ek temporary laal placeholder icon
@@ -47,7 +50,8 @@ jobs:
 
       - name: Install Android platform 34 + build-tools
         run: |
-          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 2 -name sdkmanager -type f | head -n 1)
+          SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -maxdepth 3 -name sdkmanager -type f | head -n 1)
+          if [ -z "$SDKMANAGER" ]; then echo "sdkmanager not found under $ANDROID_HOME/cmdline-tools"; ls "$ANDROID_HOME/cmdline-tools"; exit 1; fi
           yes | "$SDKMANAGER" "platforms;android-34" "build-tools;34.0.0"
 
       - name: Set up Gradle 8.7

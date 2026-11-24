@@ -1,0 +1,96 @@
+# MYRA — automatic APK build + GitHub Release
+#
+# Har push on main (aur manual Run workflow) par:
+#   1. Debug APK build hota hai (Gradle 8.7, JDK 17, Android SDK 34)
+#   2. APK ko GitHub Release me upload kar diya jata hai (tag: build-<run number>)
+#
+# Notes:
+# - Repo me gradle-wrapper.jar nahi hai, isliye `./gradlew` ki jagah
+#   `gradle/actions/setup-gradle` se Gradle 8.7 install karke `gradle` chalaya jata hai.
+# - Launcher icons (mipmap/img.png, drawable/img_foreground.png) abhi repo me
+#   nahi hain — AndroidManifest unhe @mipmap/img se use karta hai, isliye
+#   build se pehle agar wo missing hon to ek temporary laal placeholder icon
+#   bana diya jata hai. Asli icons GitHub website se upload karte hi
+#   placeholder ki jagah wahi use honge.
+# - Ye DEBUG apk hai (install karne ke liye ready). Release-signed APK ke liye
+#   keystore + GitHub Secrets chahiye honge.
+
+name: Build APK
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform 34 + build-tools
+        run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
+
+      - name: Set up Gradle 8.7
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.7'
+
+      - name: Placeholder launcher icons (agar missing hon)
+        run: |
+          python3 - <<'PY'
+          import os, struct, zlib
+
+          def write_png(path, w, h, rgb):
+              def chunk(ctype, data):
+                  c = struct.pack('>I', len(data)) + ctype + data
+                  return c + struct.pack('>I', zlib.crc32(ctype + data) & 0xffffffff)
+              sig = b'\x89PNG\r\n\x1a\n'
+              ihdr = struct.pack('>IIBBBBB', w, h, 8, 2, 0, 0, 0)
+              row = b'\x00' + bytes(rgb) * w
+              idat = zlib.compress(row * h)
+              with open(path, 'wb') as f:
+                  f.write(sig + chunk(b'IHDR', ihdr) + chunk(b'IDAT', idat) + chunk(b'IEND', b''))
+
+          for p in ['app/src/main/res/mipmap/img.png',
+                    'app/src/main/res/drawable/img_foreground.png']:
+              if not os.path.exists(p):
+                  write_png(p, 512, 512, (255, 23, 68))  # MYRA red placeholder
+                  print('created placeholder:', p)
+              else:
+                  print('exists, kept as-is:', p)
+          PY
+
+      - name: Build debug APK
+        run: gradle assembleDebug --stacktrace
+
+      - name: Upload APK as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MYRA-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Create GitHub Release with APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: MYRA build ${{ github.run_number }}
+          body: |
+            Automatic build from commit ${{ github.sha }}.
+            Debug APK — install karne ke liye ready.
+          files: app/build/outputs/apk/debug/app-debug.apk
+          fail_on_unmatched_files: true

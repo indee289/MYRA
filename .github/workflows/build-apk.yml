@@ -26,8 +26,18 @@
 #   build se pehle agar wo missing hon to ek temporary laal placeholder icon
 #   bana diya jata hai. Asli icons GitHub website se upload karte hi
 #   placeholder ki jagah wahi use honge.
-# - Ye DEBUG apk hai (install karne ke liye ready). Release-signed APK ke liye
-#   keystore + GitHub Secrets chahiye honge.
+# - APK ko release keystore (alias myra-release) se sign kiya jata hai:
+#   keystore file repo root me hai (myra-release.keystore — private repo,
+#   kabhi public mat karna), password secrets KEYSTORE_PASSWORD / KEY_ALIAS
+#   me hai. Keystore ~/workspace/myra-extract/release-key/ me backup hai
+#   (25 saal valid, SHA-256 fingerprint 37:79:B3:A2:15:06:61:E0:F2:2B:9F:
+#   A2:19:87:24:38:64:58:7B:D3:8E:75:CD:D4:43:1B:C0:D4:61:FD:59:A9).
+#   NOTE: PKCS12 keystore hai, isliye key password = store password.
+#   NOTE: pehle ANDROID_KEYSTORE base64 secret try kiya tha, par browser
+#   se paste karte time 36 characters choot gaye the (3620/3656) — isliye
+#   ab keystore file seedha repo me hai, base64 secret use NAHI hota.
+#   Release-signed APK purane debug-signed APK ke upar install NAHI hoga
+#   (signature alag hai) — pehle purana uninstall karna padega.
 
 name: Build APK
 
@@ -92,11 +102,25 @@ jobs:
       - name: Build debug APK
         run: gradle assembleDebug --stacktrace
 
+      - name: Sign APK with release key
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+        run: |
+          if [ ! -f myra-release.keystore ]; then echo "myra-release.keystore missing from repo root"; exit 1; fi
+          if [ -z "$KEYSTORE_PASSWORD" ] || [ -z "$KEY_ALIAS" ]; then echo "KEYSTORE_PASSWORD / KEY_ALIAS secret missing"; exit 1; fi
+          APKSIGNER=$(find "$ANDROID_HOME/build-tools" -maxdepth 2 -name apksigner -type f | head -n 1)
+          if [ -z "$APKSIGNER" ]; then echo "apksigner not found under $ANDROID_HOME/build-tools"; exit 1; fi
+          # Purani debug signature hatakar release key se sign karo
+          zip -d app/build/outputs/apk/debug/app-debug.apk 'META-INF/*' || true
+          "$APKSIGNER" sign --ks myra-release.keystore --ks-pass "env:KEYSTORE_PASSWORD" --key-pass "env:KEYSTORE_PASSWORD" --ks-key-alias "$KEY_ALIAS" --out app/build/outputs/apk/debug/app-release-signed.apk app/build/outputs/apk/debug/app-debug.apk
+          "$APKSIGNER" verify --print-certs app/build/outputs/apk/debug/app-release-signed.apk
+
       - name: Upload APK as artifact
         uses: actions/upload-artifact@v4
         with:
           name: MYRA-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/outputs/apk/debug/app-release-signed.apk
           if-no-files-found: error
 
       - name: Create GitHub Release with APK
@@ -106,6 +130,7 @@ jobs:
           name: MYRA build ${{ github.run_number }}
           body: |
             Automatic build from commit ${{ github.sha }}.
-            Debug APK — install karne ke liye ready.
-          files: app/build/outputs/apk/debug/app-debug.apk
+            Release-signed APK (keystore alias myra-release) — install karne ke liye ready.
+            Note: purana debug-signed APK install hai to pehle use uninstall karna hoga, kyunki signature alag hai.
+          files: app/build/outputs/apk/debug/app-release-signed.apk
           fail_on_unmatched_files: true

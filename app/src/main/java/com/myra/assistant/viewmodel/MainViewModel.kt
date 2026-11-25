@@ -13,6 +13,7 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
+import com.myra.assistant.ai.GeminiClient
 import com.myra.assistant.automation.CallAutomation
 import com.myra.assistant.automation.WhatsAppAutomation
 import com.myra.assistant.managers.AppLaunchManager
@@ -56,6 +57,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val contactManager = ContactManager(context)
     private val flashlightManager = FlashlightManager(context)
     private val volumeManager = VolumeManager(context)
+    private val geminiClient = GeminiClient(context)
+
+    // Short rolling history so free-chat (REST) replies stay in context.
+    private val chatHistory = mutableListOf<Map<String, String>>()
 
     private val WHATSAPP_WORDS = listOf(
         "whatsapp", "whats app", "whatsup", "watsp", "wasap", "watsap",
@@ -147,7 +152,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 isSpotifyCmd(lower) -> handleSpotifyVoice(lower)
                 isOpenAppCmd(lower) -> doOpenApp(extractAppName(lower))
                 isSystemCmd(lower) -> handleSystemVoice(lower)
-                else -> "Samajh nahi aaya, dobara bolo"
+                else -> chatWithGemini(trimmed)
             }
             try {
                 _aiResponse.postValue(result)
@@ -156,6 +161,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 _aiResponse.postValue("Kuch gadbad ho gayi")
             }
         }
+    }
+
+    /**
+     * Free-chat fallback: when the input is not a device command, ask Gemini
+     * over REST (gemini-1.5-flash) instead of the hardcoded "Samajh nahi aaya"
+     * reply. Works even when the Live websocket is down; GeminiClient itself
+     * reports a missing key / API error in plain words.
+     */
+    private suspend fun chatWithGemini(input: String): String {
+        val prefs = context.getSharedPreferences("myra_prefs", Context.MODE_PRIVATE)
+        val personality = prefs.getString("personality_mode", "gf") ?: "gf"
+        val userName = prefs.getString("user_name", "Sir") ?: "Sir"
+        val reply = geminiClient.sendMessage(input, chatHistory.toList(), personality, userName)
+        val isError = reply.startsWith("API Error") || reply.startsWith("API key nahi hai") ||
+            reply.startsWith("Connection problem") || reply.startsWith("Response parse")
+        if (isError) return reply
+        // Strip any [COMMAND:...] tokens Gemini may include; this path only chats.
+        val clean = reply.replace(Regex("\\[[A-Z_]+(?::[^\\]]*)?\\]"), "").trim()
+        val finalReply = clean.ifEmpty { "Samajh nahi aaya, dobara bolo" }
+        chatHistory.add(mapOf("role" to "user", "content" to input))
+        chatHistory.add(mapOf("role" to "model", "content" to finalReply))
+        while (chatHistory.size > 10) chatHistory.removeAt(0)
+        return finalReply
     }
 
     private fun parseWhatsAppMsg(input: String): String {
